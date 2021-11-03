@@ -54,13 +54,13 @@ func newUDPConn(pcb *C.struct_udp_pcb, handler UDPConnHandler, localIP C.ip_addr
 		// It's quite common to see applications sending multiple
 		// DNS queries (A,AAAA) at the same time, we should keep them all
 		// to avoid the re-sending delay, usually 4 secs.
-		pending: make(chan *udpPacket, 64),
+		pending: make(chan *udpPacket, 128),
 	}
 
 	go func() {
 		err := handler.Connect(conn, remoteAddr)
 		if err != nil {
-			conn.Close()
+			_ = conn.Close()
 		} else {
 			conn.Lock()
 			conn.state = udpConnected
@@ -70,7 +70,7 @@ func newUDPConn(pcb *C.struct_udp_pcb, handler UDPConnHandler, localIP C.ip_addr
 			for {
 				select {
 				case pkt := <-conn.pending:
-					err := conn.handler.ReceiveTo(conn, pkt.data, pkt.addr)
+					err = conn.handler.ReceiveTo(conn, pkt.data, pkt.addr)
 					if err != nil {
 						break DrainPending
 					}
@@ -171,7 +171,7 @@ func (conn *udpConn) SetDeadline(t time.Time) error {
 		return nil
 	}
 	conn.deadline = time.AfterFunc(d, func() {
-		conn.Close()
+		_ = conn.Close()
 	})
 	return nil
 }

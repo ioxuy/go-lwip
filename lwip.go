@@ -38,7 +38,11 @@ type lwipStack struct {
 
 // NewLWIPStack listens for any incoming connections/packets and registers
 // corresponding accept/recv callback functions.
-func NewLWIPStack(mtu int) LWIPStack {
+func NewLWIPStack(mtu int) (LWIPStack, error) {
+	if bufferPool == nil {
+		return nil, errors.New("`bufferPool` can not be nil, please call lwip.SetPoolAllocator(p LWIPPool) or lwip.InitLocalPool() function first")
+	}
+
 	// Set MTU.
 	C.netif_list.mtu = C.ushort(mtu)
 
@@ -100,7 +104,7 @@ func NewLWIPStack(mtu int) LWIPStack {
 		ctx:    ctx,
 		cancel: cancel,
 		mtu:    mtu,
-	}
+	}, nil
 }
 
 // Write writes IP packets to the stack.
@@ -143,7 +147,7 @@ func (s *lwipStack) Close() error {
 		// UDP connections in the handler will wait till
 		// timeout, they are not closed immediately for
 		// now.
-		c.(*udpConn).Close()
+		_ = c.(*udpConn).Close()
 		return true
 	})
 
